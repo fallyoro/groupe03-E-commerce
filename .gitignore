@@ -1,0 +1,20 @@
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# IDE (JetBrains / PyCharm)
+.idea/
+
+# Marimo — cache de sessions (regénéré automatiquement)
+__marimo__/
+
+# Fichiers temporaires bureautiques (verrous Word/Excel ouverts)
+~$*
+*.tmp
+
