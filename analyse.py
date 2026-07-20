@@ -7,21 +7,22 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     import marimo as mo
-    from scipy import stats
-    from src.chargement import charger_donnee
-    from src.nettoyage import detecter_outliers_iqr
-    from src.nettoyage import detect_outliers_zscore
-    from src.nettoyage import analyser_variables_categorielles
-    from src.nettoyage import standardiser
-    from src.nettoyage import controler_revenue
     import matplotlib.pyplot as plt
-    import seaborn as sns
     import numpy as np
     import pandas as pd
+    import seaborn as sns
 
-    plt.style.use('seaborn-v0_8-darkgrid')
+    from src.chargement import charger_donnee
+    from src.nettoyage import (
+        analyser_variables_categorielles,
+        controler_revenue,
+        detect_outliers_zscore,
+        detecter_outliers_iqr,
+        standardiser,
+    )
+
+    plt.style.use("seaborn-v0_8-darkgrid")
     sns.set_palette("husl")
-    #%matplotlib inline
     return (
         analyser_variables_categorielles,
         charger_donnee,
@@ -31,6 +32,7 @@ def _():
         mo,
         pd,
         plt,
+        sns,
         standardiser,
     )
 
@@ -38,7 +40,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    #Projet analyse vente Ecommerce
+    # Projet analyse vente E-commerce
     """)
     return
 
@@ -46,41 +48,33 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ##1 Nettoyage et preparation des donnees
+    ## 1. Nettoyage et préparation des données
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 1.1 Chargement
     """)
     return
 
 
 @app.cell
 def _(charger_donnee):
-    #charger les donnees
-    path ="datasets/raw/ecommerce_sales_analytics_5000.csv"
+    path = "datasets/raw/ecommerce_sales_analytics_5000.csv"
     df = charger_donnee(path=path)
     return (df,)
 
 
 @app.cell
 def _(df):
-    #visualiser debut
     df.head()
     return
 
 
 @app.cell
-def _(df):
-    df.isnull().sum()
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    on remarque que pour ce dataset il n'y as aucune donnee manquante ce qui nous facilite grandement le travail
-    """)
-    return
-
-
-@app.cell(hide_code=True)
 def _(df):
     df.info()
     return
@@ -92,77 +86,138 @@ def _(df):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 1.2 Valeurs manquantes
+    """)
+    return
+
+
 @app.cell
 def _(df):
     df.isnull().sum()
     return
 
 
-@app.cell
-def _(controler_revenue, df):
-    controler_revenue(df)
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    On remarque que pour ce dataset il n'y a aucune donnée manquante, ce qui nous facilite grandement le travail.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 1.3 Doublons
+    """)
     return
 
 
 @app.cell
 def _(df):
-    #doublon 
-    df[df.duplicated()]
-    #aucune duplication n'est observe
+    # Doublons de lignes complètes
+    n_doublons_lignes = df.duplicated().sum()
+    print(f"Doublons de lignes complètes : {n_doublons_lignes}")
+
+    # Doublons sur order_id (chaque commande doit être unique)
+    n_doublons_order_id = df.duplicated(subset=["order_id"]).sum()
+    print(f"Doublons sur order_id : {n_doublons_order_id}")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Aucun doublon détecté, ni sur les lignes complètes, ni sur `order_id`. Chaque commande est bien unique.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 1.4 Contrôle de cohérence de `revenue`
+    """)
+    return
+
+
+@app.cell
+def _(controler_revenue, df):
+    incoherents = controler_revenue(df)
+    incoherents
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    24 lignes présentent un écart moyen de 0.48 %, dû à un arrondi de N décimales. L'impresision reste tres faible donc `revenue` peut être utilisé en confiance pour la suite de l'analyse.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 1.5 Cohérence des bornes
+    """)
+    return
+
+
+@app.cell
+def _(df):
+    print(
+        "discount hors [0, 1[ :",
+        (~df["discount"].between(0, 1, inclusive="left")).sum(),
+    )
+    print("customer_rating hors [1, 5] :", (~df["customer_rating"].between(1, 5)).sum())
+    print("quantity <= 0 :", (df["quantity"] <= 0).sum())
+    print("delivery_days <= 0 :", (df["delivery_days"] <= 0).sum())
+    print("unit_price <= 0 :", (df["unit_price"] <= 0).sum())
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 1.6 Cohérence des dates
+    """)
     return
 
 
 @app.cell
 def _(df, pd):
-    print("Date min :", df['order_date'].min())
-    print("Date max :", df['order_date'].max())
+    print("Date min :", df["order_date"].min())
+    print("Date max :", df["order_date"].max())
 
-    # 4. Dates dans le futur (par rapport à aujourd'hui)
-    dates_futures = df[df['order_date'] > pd.Timestamp.now()]
+    dates_futures = df[df["order_date"] > pd.Timestamp.now()]
     print(f"Commandes avec date future : {len(dates_futures)}")
 
-    # 5. Dates antérieures à une borne plausible (ex: lancement de l'activité)
-    borne_min = pd.Timestamp('2020-01-01')  # à ajuster selon ton contexte
-    dates_trop_anciennes = df[df['order_date'] < borne_min]
+    borne_min = pd.Timestamp("2020-01-01")
+    dates_trop_anciennes = df[df["order_date"] < borne_min]
     print(f"Commandes antérieures à {borne_min.date()} : {len(dates_trop_anciennes)}")
 
-    # 6. Doublons exacts de dates+order_id (incohérence potentielle)
-    doublons_id_date = df.duplicated(subset=['order_id', 'order_date']).sum()
+    doublons_id_date = df.duplicated(subset=["order_id", "order_date"]).sum()
     print(f"Doublons order_id + order_date : {doublons_id_date}")
     return
 
 
-@app.cell
-def _(df):
-    print("=== DÉTECTION DES OUTLIERS — Quantity ===\n")
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Les dates semblent cohérentes : bornées dans une plage plausible, aucune date future, aucun doublon `order_id` + `order_date`.
+    """)
+    return
 
-    # Série étudiée
-    quantity = df["quantity"]
 
-    # Calcul de l'IQR
-    q1 = quantity.quantile(0.25)
-    q3 = quantity.quantile(0.75)
-
-    iqr = q3 - q1
-
-    # Bornes inférieure et supérieure
-    borne_inf = q1 - 1.5 * iqr
-    borne_sup = q3 + 1.5 * iqr
-
-    # Détection des outliers
-    outliers = (quantity < borne_inf) | (quantity > borne_sup)
-
-    # Résultats
-    print(f"Q1 = {q1:.1f}")
-    print(f"Q3 = {q3:.1f}")
-    print(f"IQR = {iqr:.1f}")
-
-    print(f"\nBornes IQR : [{borne_inf:.1f}, {borne_sup:.1f}]")
-
-    print(
-        f"Outliers IQR : {outliers.sum()} "
-        f"({outliers.sum()/len(quantity)*100:.1f}%)"
-    )
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 1.7 Détection des outliers
+    """)
     return
 
 
@@ -174,7 +229,7 @@ def _(detecter_outliers_iqr, df):
         "discount",
         "delivery_days",
         "customer_rating",
-        "revenue"
+        "revenue",
     ]
 
     for colonne in colonnes_numeriques:
@@ -184,30 +239,24 @@ def _(detecter_outliers_iqr, df):
 
 
 @app.cell
-def _(colonnes_numeriques, df, plt):
+def _(colonnes_numeriques, df, plt, sns):
+    n = len(colonnes_numeriques)
+    fig, axes = plt.subplots(n, 1, figsize=(8, 2.5 * n))
 
+    for ax, _c in zip(axes, colonnes_numeriques):
+        sns.boxplot(x=df[_c].dropna(), color="skyblue", fliersize=4, linewidth=1.2, ax=ax)
+        ax.set_title(f"Diagramme à moustaches — {_c}", fontsize=11, fontweight="bold")
+        ax.set_xlabel(_c)
+        sns.despine(left=True, ax=ax)
 
-
-
-    for _c in colonnes_numeriques:
-        plt.figure(figsize=(8, 3))
-
-        plt.boxplot(
-            df[_c].dropna(),
-            vert=False
-        )
-
-        plt.title(f"Diagramme à moustaches — {_c}")
-        plt.xlabel(_c)
-
-        plt.show()
+    plt.tight_layout()
+    plt.show()
     return
 
 
 @app.cell
 def _(detect_outliers_zscore, df):
     resultats_outliers = detect_outliers_zscore(df)
-    print(resultats_outliers)
     return
 
 
@@ -225,7 +274,7 @@ def _(mo):
     | IQR | **1.34 %** |
     | Z-score | **0.52 %** |
 
-    > 🔎 Aucune autre variable ne présente d'outliers, quelle que soit la méthode utilisée.
+    > Aucune autre variable ne présente d'outliers, quelle que soit la méthode utilisée.
 
     ### Interprétation
 
@@ -234,16 +283,10 @@ def _(mo):
     return
 
 
-@app.cell
-def _(df):
-    df
-    return
-
-
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    les dates semble coherentes
+    ### 1.8 Analyse des variables catégorielles
     """)
     return
 
@@ -257,7 +300,15 @@ def _(analyser_variables_categorielles, df):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    Les trois variables ont une cardinalité faible (3-4 modalités) et aucune relation d'ordre naturelle (ni payment_method, ni product_category, ni region ne sont ordinales) → one-hot encoding est le choix logique pour les trois, pas de label encoding (qui introduirait un ordre artificiel).
+    Les trois variables ont une cardinalité faible (3-4 modalités) et aucune relation d'ordre naturelle (ni `payment_method`, ni `product_category`, ni `region` ne sont ordinales) → one-hot encoding est le choix logique pour les trois, pas de label encoding (qui introduirait un ordre artificiel).
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 1.9 Encodage
     """)
     return
 
@@ -267,15 +318,39 @@ def _(df, pd):
     df_encoded = pd.get_dummies(
         df,
         columns=["payment_method", "product_category", "region"],
-        drop_first=True,  # évite la colinéarité parfaite (piège du dummy variable)
-        dtype=int
+        drop_first=True,
+        dtype=int,
     )
+    df_encoded.head()
     return (df_encoded,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 1.10 Standardisation
+    """)
+    return
 
 
 @app.cell
 def _(colonnes_numeriques, df_encoded, standardiser):
     df_scaled, scaler = standardiser(df_encoded, colonnes_numeriques)
+    df_scaled[colonnes_numeriques].describe()
+    return (df_scaled,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Après standardisation, les variables numériques ont bien une moyenne ≈ 0 et un écart-type ≈ 1, sur la base du `describe()` ci-dessus. Le jeu de données est maintenant prêt pour l'analyse exploratoire (section 2).
+    """)
+    return
+
+
+@app.cell
+def _(df_scaled):
+    df_scaled.to_csv("datasets/processed/ecommerce_clean.csv", index=False)
     return
 
 
