@@ -11,18 +11,22 @@ def _():
     from src.chargement import charger_donnee
     from src.nettoyage import detecter_outliers_iqr
     from src.nettoyage import detect_outliers_zscore
+    from src.nettoyage import analyser_variables_categorielles
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np
+    import pandas as pd
 
     plt.style.use('seaborn-v0_8-darkgrid')
     sns.set_palette("husl")
     #%matplotlib inline
     return (
+        analyser_variables_categorielles,
         charger_donnee,
         detect_outliers_zscore,
         detecter_outliers_iqr,
         mo,
+        pd,
         plt,
     )
 
@@ -189,6 +193,72 @@ def _(mo):
 
     Ces valeurs extrêmes semblent **légitimes** plutôt que des erreurs de saisie. `revenue` étant le produit de `quantity` (1 à 7) et `unit_price` (jusqu'à ~600), les commandes combinant une quantité élevée et un prix unitaire élevé génèrent mécaniquement des revenus bien supérieurs à la moyenne. Aucune valeur négative ni incohérente avec les bornes des variables sources n'a été observée. Ces outliers correspondent donc probablement à de grosses commandes réelles et **ne devraient pas être supprimés systématiquement**, au risque de fausser l'analyse en excluant des cas d'usage valides.
     """)
+    return
+
+
+@app.cell
+def _(df):
+    #doublon 
+    df[df.duplicated()]
+    return
+
+
+@app.cell
+def _(df):
+    df
+    return
+
+
+@app.cell
+def _(df, pd):
+    print("Date min :", df['order_date'].min())
+    print("Date max :", df['order_date'].max())
+
+    # 4. Dates dans le futur (par rapport à aujourd'hui)
+    dates_futures = df[df['order_date'] > pd.Timestamp.now()]
+    print(f"Commandes avec date future : {len(dates_futures)}")
+
+    # 5. Dates antérieures à une borne plausible (ex: lancement de l'activité)
+    borne_min = pd.Timestamp('2020-01-01')  # à ajuster selon ton contexte
+    dates_trop_anciennes = df[df['order_date'] < borne_min]
+    print(f"Commandes antérieures à {borne_min.date()} : {len(dates_trop_anciennes)}")
+
+    # 6. Doublons exacts de dates+order_id (incohérence potentielle)
+    doublons_id_date = df.duplicated(subset=['order_id', 'order_date']).sum()
+    print(f"Doublons order_id + order_date : {doublons_id_date}")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    les dates semble coherentes
+    """)
+    return
+
+
+@app.cell
+def _(analyser_variables_categorielles, df):
+    analyser_variables_categorielles(df)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Les trois variables ont une cardinalité faible (3-4 modalités) et aucune relation d'ordre naturelle (ni payment_method, ni product_category, ni region ne sont ordinales) → one-hot encoding est le choix logique pour les trois, pas de label encoding (qui introduirait un ordre artificiel).
+    """)
+    return
+
+
+@app.cell
+def _(df, pd):
+    df_encoded = pd.get_dummies(
+        df,
+        columns=["payment_method", "product_category", "region"],
+        drop_first=True,  # évite la colinéarité parfaite (piège du dummy variable)
+        dtype=int
+    )
     return
 
 

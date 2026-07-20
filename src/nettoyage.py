@@ -69,3 +69,22 @@ def detect_outliers_zscore(
             f"{c:20s} | Outliers: {n_outliers:3d} ({n_outliers/len(data_clean)*100:5.2f}%) | Min: {data_clean.min():8.2f} | Max: {data_clean.max():8.2f}"
         )
     return resultats
+
+
+def analyser_variables_categorielles(data: pd.DataFrame) -> pd.DataFrame:
+    """Recense les variables catégorielles et leur cardinalité."""
+    cols_cat = data.select_dtypes(include=["object", "category"]).columns
+
+    infos = []
+    for c in cols_cat:
+        n_uniques = data[c].nunique()
+        infos.append(
+            {
+                "colonne": c,
+                "n_valeurs_uniques": n_uniques,
+                "pct_uniques": n_uniques / len(data) * 100,
+            }
+        )
+
+    resultat = pd.DataFrame(infos).sort_values("n_valeurs_uniques")
+    return resultat
