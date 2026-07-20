@@ -12,6 +12,8 @@ def _():
     from src.nettoyage import detecter_outliers_iqr
     from src.nettoyage import detect_outliers_zscore
     from src.nettoyage import analyser_variables_categorielles
+    from src.nettoyage import standardiser
+    from src.nettoyage import controler_revenue
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np
@@ -23,11 +25,13 @@ def _():
     return (
         analyser_variables_categorielles,
         charger_donnee,
+        controler_revenue,
         detect_outliers_zscore,
         detecter_outliers_iqr,
         mo,
         pd,
         plt,
+        standardiser,
     )
 
 
@@ -91,6 +95,40 @@ def _(df):
 @app.cell
 def _(df):
     df.isnull().sum()
+    return
+
+
+@app.cell
+def _(controler_revenue, df):
+    controler_revenue(df)
+    return
+
+
+@app.cell
+def _(df):
+    #doublon 
+    df[df.duplicated()]
+    #aucune duplication n'est observe
+    return
+
+
+@app.cell
+def _(df, pd):
+    print("Date min :", df['order_date'].min())
+    print("Date max :", df['order_date'].max())
+
+    # 4. Dates dans le futur (par rapport à aujourd'hui)
+    dates_futures = df[df['order_date'] > pd.Timestamp.now()]
+    print(f"Commandes avec date future : {len(dates_futures)}")
+
+    # 5. Dates antérieures à une borne plausible (ex: lancement de l'activité)
+    borne_min = pd.Timestamp('2020-01-01')  # à ajuster selon ton contexte
+    dates_trop_anciennes = df[df['order_date'] < borne_min]
+    print(f"Commandes antérieures à {borne_min.date()} : {len(dates_trop_anciennes)}")
+
+    # 6. Doublons exacts de dates+order_id (incohérence potentielle)
+    doublons_id_date = df.duplicated(subset=['order_id', 'order_date']).sum()
+    print(f"Doublons order_id + order_date : {doublons_id_date}")
     return
 
 
@@ -198,34 +236,7 @@ def _(mo):
 
 @app.cell
 def _(df):
-    #doublon 
-    df[df.duplicated()]
-    return
-
-
-@app.cell
-def _(df):
     df
-    return
-
-
-@app.cell
-def _(df, pd):
-    print("Date min :", df['order_date'].min())
-    print("Date max :", df['order_date'].max())
-
-    # 4. Dates dans le futur (par rapport à aujourd'hui)
-    dates_futures = df[df['order_date'] > pd.Timestamp.now()]
-    print(f"Commandes avec date future : {len(dates_futures)}")
-
-    # 5. Dates antérieures à une borne plausible (ex: lancement de l'activité)
-    borne_min = pd.Timestamp('2020-01-01')  # à ajuster selon ton contexte
-    dates_trop_anciennes = df[df['order_date'] < borne_min]
-    print(f"Commandes antérieures à {borne_min.date()} : {len(dates_trop_anciennes)}")
-
-    # 6. Doublons exacts de dates+order_id (incohérence potentielle)
-    doublons_id_date = df.duplicated(subset=['order_id', 'order_date']).sum()
-    print(f"Doublons order_id + order_date : {doublons_id_date}")
     return
 
 
@@ -259,6 +270,12 @@ def _(df, pd):
         drop_first=True,  # évite la colinéarité parfaite (piège du dummy variable)
         dtype=int
     )
+    return (df_encoded,)
+
+
+@app.cell
+def _(colonnes_numeriques, df_encoded, standardiser):
+    df_scaled, scaler = standardiser(df_encoded, colonnes_numeriques)
     return
 
 

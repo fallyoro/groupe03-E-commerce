@@ -1,8 +1,7 @@
-import math
-
 import numpy as np
 import pandas as pd
 from scipy import stats
+from sklearn.preprocessing import StandardScaler
 
 
 def detecter_outliers_iqr(df, colonne):
@@ -88,3 +87,43 @@ def analyser_variables_categorielles(data: pd.DataFrame) -> pd.DataFrame:
 
     resultat = pd.DataFrame(infos).sort_values("n_valeurs_uniques")
     return resultat
+
+
+def standardiser(
+    data: pd.DataFrame,
+    colonnes: list[str] | None = None,
+    exclure: list[str] = ["order_id", "customer_id"],
+) -> tuple[pd.DataFrame, StandardScaler]:
+    """Standardise les colonnes numériques (moyenne=0, écart-type=1)."""
+    data = data.copy()
+
+    if colonnes is None:
+        colonnes = [
+            c
+            for c in data.select_dtypes(include=[np.number]).columns
+            if c not in exclure
+        ]
+
+    scaler = StandardScaler()
+    data[colonnes] = scaler.fit_transform(data[colonnes])
+
+    return data, scaler
+
+
+def controler_revenue(data: pd.DataFrame, tolerance: float = 0.01) -> pd.DataFrame:
+    """Vérifie la cohérence entre revenue et quantity*unit_price*(1-discount)."""
+    data = data.copy()
+    data["revenue_calcule"] = (
+        data["quantity"] * data["unit_price"] * (1 - data["discount"])
+    )
+    data["ecart"] = (data["revenue"] - data["revenue_calcule"]).abs()
+    data["ecart_pct"] = data["ecart"] / data["revenue_calcule"] * 100
+
+    incoherents = data[data["ecart_pct"] > tolerance]
+    print(
+        f"{len(incoherents)} lignes ({len(incoherents)/len(data)*100:.2f}%) avec écart > {tolerance}%"
+    )
+    print(
+        f"Écart moyen : {data['ecart'].mean():.4f} | Écart max : {data['ecart'].max():.4f}"
+    )
+    return incoherents
