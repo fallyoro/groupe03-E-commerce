@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.14"
+__generated_with = "0.23.9"
 app = marimo.App(width="medium")
 
 
@@ -38,6 +38,7 @@ def _():
         detecter_outliers_iqr,
         heatmap,
         mo,
+        np,
         pd,
         plot_ca_et_panier_par_region,
         plot_ca_par_categorie,
@@ -702,8 +703,187 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 3. Réduction de dimension (ACP)
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 3.1. L'ACP est-elle pertinente ici ?
+    Avant de lancer quoi que ce soit, on se pose la question que le sujet nous impose de trancher : l'ACP a-t-elle un intérêt sur ce jeu de données ?
+
+    Le noyau numérique dont on dispose (`quantity`, `unit_price`, `discount`, `delivery_days`, `customer_rating`, `revenue`) ne compte que **6 variables** — c'est peu. Et surtout, la matrice de corrélation de la partie 2.2 a déjà répondu en partie à la question : en dehors du lien mécanique entre `revenue` et ses composantes (`unit_price` r=0.68, `quantity` r=0.62), toutes les autres paires de variables sont quasiment non corrélées (|r| ≤ 0.02).
+
+    Or l'ACP ne devient intéressante que lorsque des variables nombreuses et corrélées permettent de les résumer en quelques axes sans perdre trop d'information. Ici, on a peu de variables, et elles sont peu corrélées entre elles. On s'attend donc à ce que l'ACP n'apporte **pas grand-chose** — mais on ne le suppose pas, on va le vérifier avec les chiffres, comme demandé.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 3.2. Standardisation;
+    Les variables ont déjà été standardisées en partie 1.10 (`df_scaled`), condition indispensable avant toute ACP : sans cela, `revenue` (variance forte, valeurs jusqu'à plusieurs milliers) écraserait à lui seul l'inertie du nuage de points face à `discount` (valeurs entre 0 et 0.3).
+    """)
+    return
+
+
 @app.cell
-def _():
+def _(colonnes_numeriques_desc, df_scaled):
+    from sklearn.decomposition import PCA
+
+    X_acp = df_scaled[colonnes_numeriques_desc]
+    pca = PCA()
+    composantes = pca.fit_transform(X_acp)
+    return X_acp, composantes, pca
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Cette cellule prépare simplement les objets `pca` et `composantes` qui seront utilisés dans les cellules suivantes. L'ACP est calculée sur les 6 variables numériques déjà standardisées.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 3.3. Éboulis des valeurs propres : combien d'axes garder ?
+    """)
+    return
+
+
+@app.cell
+def _(np, pca, plt):
+    variance_expliquee = pca.explained_variance_ratio_
+    variance_cumulee = np.cumsum(variance_expliquee)
+
+    _fig, _ax = plt.subplots(figsize=(8, 5))
+    _ax.bar(range(1, len(variance_expliquee) + 1), variance_expliquee * 100,
+            color="skyblue", label="Variance expliquée (%)")
+    _ax.plot(range(1, len(variance_cumulee) + 1), variance_cumulee * 100,
+             color="red", marker="o", label="Variance cumulée (%)")
+    _ax.axhline(80, color="grey", linestyle=":", linewidth=1, label="Seuil 80%")
+    _ax.set_xlabel("Composante principale")
+    _ax.set_ylabel("% de variance expliquée")
+    _ax.set_title("Éboulis des valeurs propres — ACP sur le noyau numérique")
+    _ax.legend()
+    plt.tight_layout()
+    plt.show()
+    return variance_cumulee, variance_expliquee
+
+
+@app.cell
+def _(variance_cumulee, variance_expliquee):
+    for j, (v, c) in enumerate(zip(variance_expliquee, variance_cumulee), start=1):
+        print(f"CP{j} : {v*100:.1f}% (cumulé {c*100:.1f}%)")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    CP1 : 32,2% — CP2 : 17,2% (cumulé 49,4%) — CP3 : 16,9% (cumulé 66,3%) — CP4 : 16,3% (cumulé 82,6%) — CP5 : 16,2% (cumulé 98,9%) — CP6 : 1,1% (cumulé 100%). Quatre composantes quasi identiques en poids (CP2 à CP5, toutes entre 16,2% et 17,2%) confirment l'absence de hiérarchie claire entre les axes : il faut attendre CP6 pour voir une vraie chute.
+
+
+
+    CP1 explique 32,2% de la variance, CP2 17,2% : à eux deux, ils ne couvrent que **49,4%** de l'information totale. Il faut 4 axes pour dépasser le seuil de 80% (CP1 à CP4 cumulent 82,6%), et la chute nette n'intervient qu'au 6ᵉ axe (1,1% seulement, contre 16,2% pour CP5). L'éboulis est donc plat sur les 5 premiers axes plutôt que décroissant : la variance se répartit de façon presque égale entre eux, signe qu'aucun petit sous-ensemble de dimensions ne concentre l'essentiel de l'information.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 3.4. cercle des corrélations
+    """)
+    return
+
+
+@app.cell
+def _(X_acp, np, pca, plt):
+    loadings = pca.components_.T * np.sqrt(pca.explained_variance_)
+
+    _fig, _ax = plt.subplots(figsize=(7, 7))
+    _circle = plt.Circle((0, 0), 1, fill=False, color="gray", linestyle="--")
+    _ax.add_artist(_circle)
+
+    for i, var in enumerate(X_acp.columns):
+        _ax.arrow(0, 0, loadings[i, 0], loadings[i, 1],
+                  head_width=0.03, color="steelblue")
+        _ax.text(loadings[i, 0] * 1.15, loadings[i, 1] * 1.15, var, fontsize=10)
+
+    _ax.axhline(0, color="grey", lw=0.8)
+    _ax.axvline(0, color="grey", lw=0.8)
+    _ax.set_xlim(-1.2, 1.2)
+    _ax.set_ylim(-1.2, 1.2)
+    _ax.set_xlabel(f"CP1 ({pca.explained_variance_ratio_[0]*100:.1f}%)")
+    _ax.set_ylabel(f"CP2 ({pca.explained_variance_ratio_[1]*100:.1f}%)")
+
+    _ax.set_title("Cercle des corrélations (CP1 x CP2)")
+    _ax.set_aspect("equal")
+    plt.tight_layout()
+    plt.show()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **CP1 ("taille de la commande") :** `revenue`, `unit_price` et `quantity` pointent tous vers la droite, confirmant leur lien mécanique déjà vu en 2.2 (r=0,68 et r=0,62 avec revenue), CP1 résume bien la valeur de la commande.
+
+    **CP2 :** dominé par `delivery_days` (vers le haut) et `customer_rating` (vers le bas), à l'opposé l'un de l'autre sur cet axe. Attention à ne pas y voir une anti-corrélation entre les deux : la matrice de corrélation (partie 2.2) avait déjà montré qu'ils sont quasiment indépendants (r=-0,02). Cette position opposée reflète simplement le fait que ce sont les deux seules variables qui ne s'alignent pas sur CP1 : l'ACP leur construit un axe à part pour capter leur variance propre, sans que cela traduise un lien réel entre elles.
+
+    **`discount` :** flèche minuscule, quasi au centre du cercle, cette variable est très mal représentée sur le plan CP1-CP2. Sa variance se répartit sur les axes suivants (CP3 à CP5), qui pèsent presque autant que CP2 (16-17% chacun).
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 3.5. Projection des individus
+    """)
+    return
+
+
+@app.cell
+def _(composantes, df, plt):
+    _fig, _ax = plt.subplots(figsize=(8, 6))
+    _scatter = _ax.scatter(composantes[:, 0], composantes[:, 1],
+                            c=df["revenue"], cmap="viridis", alpha=0.5, s=15)
+    plt.colorbar(_scatter, label="Revenue ($)")
+    _ax.set_xlabel("CP1")
+    _ax.set_ylabel("CP2")
+    _ax.set_title("Projection des commandes sur les deux premiers axes")
+    plt.tight_layout()
+    plt.show()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Le nuage confirme visuellement le rôle de CP1 : le dégradé de couleur (revenue) progresse clairement de gauche (violet, faible revenue) à droite (jaune, fort revenue), sans aucun regroupement en sous-populations distinctes. Les commandes se répartissent en un nuage continu, homogène, aucun segment naturel de clientèle ne se détache sur ces deux axes.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 3.6. Conclusion de la partie 3
+
+    L'ACP confirme l'hypothèse posée en 3.1 : avec 49,4% de variance cumulée sur les deux premiers axes seulement (et 4 axes nécessaires pour dépasser 80%), il n'existe pas de dimension latente qui résume efficacement les 6 variables numériques. CP1 (32,2%) capture la "taille de la commande" (`revenue`, `unit_price`, `quantity`, mécaniquement liés), tandis que CP2 (17,2%) isole `delivery_days` et `customer_rating` sans que cela traduise une corrélation entre eux (r=-0,02, déjà établi en partie 2.2). `discount`, quant à elle, n'est bien représentée sur aucun des deux premiers axes.
+
+    **Ce n'est pas un échec de la méthode, c'est un résultat en soi :** le comportement d'achat de cette boutique ne se réduit pas à deux ou trois facteurs cachés. Pour la direction, cela signifie que remise, délai de livraison, catégorie et région doivent continuer à être pilotés comme des leviers **indépendants** plutôt que via un indicateur composite, ce que confirment aussi les tests ANOVA de la partie 2, qui montrent des effets propres à chaque variable plutôt qu'un facteur commun.
+    """)
     return
 
 
