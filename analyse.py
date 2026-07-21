@@ -4,6 +4,14 @@ __generated_with = "0.23.9"
 app = marimo.App(width="medium")
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Importations des bibliothèques
+    """)
+    return
+
+
 @app.cell
 def _():
     import marimo as mo
@@ -883,6 +891,154 @@ def _(mo):
     L'ACP confirme l'hypothèse posée en 3.1 : avec 49,4% de variance cumulée sur les deux premiers axes seulement (et 4 axes nécessaires pour dépasser 80%), il n'existe pas de dimension latente qui résume efficacement les 6 variables numériques. CP1 (32,2%) capture la "taille de la commande" (`revenue`, `unit_price`, `quantity`, mécaniquement liés), tandis que CP2 (17,2%) isole `delivery_days` et `customer_rating` sans que cela traduise une corrélation entre eux (r=-0,02, déjà établi en partie 2.2). `discount`, quant à elle, n'est bien représentée sur aucun des deux premiers axes.
 
     **Ce n'est pas un échec de la méthode, c'est un résultat en soi :** le comportement d'achat de cette boutique ne se réduit pas à deux ou trois facteurs cachés. Pour la direction, cela signifie que remise, délai de livraison, catégorie et région doivent continuer à être pilotés comme des leviers **indépendants** plutôt que via un indicateur composite, ce que confirment aussi les tests ANOVA de la partie 2, qui montrent des effets propres à chaque variable plutôt qu'un facteur commun.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 4. Résultats
+    ### 4.1. Indicateurs clés
+    """)
+    return
+
+
+@app.cell
+def _(df, pd):
+    indicateurs = pd.Series({
+        "Chiffre d'affaires total ($)": df["revenue"].sum(),
+        "Panier moyen ($)": df["revenue"].mean(),
+        "Remise moyenne (%)": df["discount"].mean() * 100,
+        "Délai de livraison moyen (jours)":  df["delivery_days"].mean(),
+        "Note client moyenne (/5)": df["customer_rating"].mean(),
+        "Nombre de clients uniques": df["customer_id"].nunique(),
+        "Nombre de commandes": len(df),
+        "Taux de ré-achat (%)": (1 - df["customer_id"].nunique() / len(df)) * 100,
+    }).round(2)
+    indicateurs
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **Lecture des indicateurs clés :**
+
+    Le chiffre d'affaires total s'élève à **5 109 775,74 $** sur 5 000 commandes, pour un panier moyen de **1 021,96 $**, cohérent avec la moyenne de `revenue` déjà observée en partie 2.1.
+
+    La remise moyenne accordée est de **18%**, avec un délai de livraison moyen de **6,12 jours**.
+
+    Point notable : la note client moyenne n'est que de **2,97/5**, en dessous du milieu de l'échelle (3/5). Combinée au résultat de l'ANOVA (partie 2.3, p=0,38), cela signifie que le niveau de satisfaction est globalement modéré et **ne dépend pas du niveau de remise accordée**, la remise ne compense donc pas une satisfaction par ailleurs mitigée.
+
+    Avec **989 clients uniques** pour 5 000 commandes, le taux de ré-achat atteint **80,22%** : la grande majorité des commandes proviennent de clients déjà venus (en moyenne ~5 commandes par client). C'est un signal fort de fidélisation à mettre en regard d'une satisfaction moyenne pourtant mitigée (2,97/5), ce qui suggère que le ré-achat est peut-être porté par d'autres facteurs (prix, habitude, absence d'alternative) plutôt que par l'enthousiasme client.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 4.2. Réponses aux questions métiers
+
+    **Répartition de l'activité.**
+
+    Electronics concentre 35,8% du chiffre d'affaires total (1 829 899 $), devant Clothing (30,0%) : ces deux catégories représentent près des deux tiers (65,8%) de l'activité, loin devant Home (19,2%) et Beauty (15,0%). À l'inverse, les 4 régions se répartissent le chiffre d'affaires de façon plus homogène, sans écart marqué de panier moyen, la catégorie de produit est donc un levier de segmentation bien plus discriminant que la région.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **Délai de livraison et satisfaction.**
+
+    L'ANOVA (partie 2.3) n'atteint pas non plus le seuil de significativité de 5% (F=2,16, p=0,09), mais s'en approche nettement plus que pour la remise. Avec un délai moyen de 6,12 jours (partie 4.1) et une corrélation quasi nulle entre `delivery_days` et `customer_rating` (r=-0,02, partie 2.2), les données ne permettent pas de confirmer statistiquement l'inquiétude du service client. Elles ne permettent pas non plus de l'écarter complètement : le résultat mérite d'être surveillé plutôt que classé sans suite.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **La remise achète-t-elle la satisfaction ?**
+
+    Non. L'ANOVA menée en partie 2.3 ne détecte aucune différence significative de note client entre les tranches de remise (F=1,03, p=0,38, très au-dessus du seuil de 5%) : les distributions de note se superposent quelle que soit la remise accordée. Or la remise moyenne s'élève à 18% (partie 4.1), et la corrélation avec `revenue` est négative (r=-0,14, partie 2.2), la remise réduit donc le chiffre d'affaires par commande sans gain de satisfaction mesurable en retour. Avec une note client moyenne de seulement 2,97/5, la remise ne compense pas non plus une satisfaction par ailleurs mitigée.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **Structure sous-jacente des commandes.**
+
+    L'ACP (partie 3) montre qu'il n'existe pas de facteur latent qui résume les commandes : les deux premiers axes n'expliquent que 49,4% de la variance, et il faut 4 axes pour dépasser 80% (82,6%). CP1 (32,2%) capture la "taille de la commande" (`revenue`, `unit_price`, `quantity`), tandis que `discount`, `delivery_days` et `customer_rating` se répartissent sur des axes distincts, sans lien fort entre eux. Chaque levier — remise, délai, catégorie, région, agit donc indépendamment et doit être piloté comme tel, pas via un indicateur composite unique.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### 4.3. Synthèse
+    Sur les deux hypothèses commerciales centrales du sujet (remise et délai), les données invalident la première (la remise n'améliore pas la satisfaction) et laissent la seconde ouverte (le délai s'en approche sans la confirmer). La structure de l'activité est fortement concentrée par catégorie (Electronics + Clothing = 65,8% du CA) mais homogène par région. Enfin, l'ACP confirme qu'aucun facteur caché ne pilote l'ensemble des commandes : les leviers d'action identifiés doivent être actionnés séparément.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 5. Recommandations
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **5.1. Plafonner les remises au-delà de 20-30%.**
+
+    La remise moyenne actuelle est de 18%, et l'ANOVA (partie 2.3) ne détecte aucun gain de satisfaction lié au niveau de remise (F=1,03, p=0,38) : la note client reste globalement stable, et déjà mitigée (2,97/5 en moyenne, tous niveaux de remise confondus). Or la corrélation remise/revenue est négative (r=-0,14, partie 2.2) : chaque point de remise accordé ampute directement la marge sans retour mesurable en satisfaction. *Limite : effet mesuré au niveau agrégé, non testé par catégorie ni par région — un plafonnement uniforme mériterait d'être affiné avant généralisation.*
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **5.2. Ne pas classer le sujet "délai de livraison" comme non problématique.**
+
+    Le résultat (F=2,16, p=0,09) est proche du seuil de significativité de 5% sans l'atteindre. Plutôt que de conclure à l'absence d'effet, recommander une collecte complémentaire (échantillon plus large, ou variable additionnelle comme le transporteur) avant toute décision. *Coût : nul à court terme, il s'agit de suivi et non d'une action immédiate.*
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **5.3. Concentrer l'effort commercial et marketing sur Electronics et Clothing**, qui représentent à elles deux 65,8% du chiffre d'affaires total (1 829 899 $ et 1 531 932 $ respectivement), contre 19,2% pour Home et seulement 15,0% pour Beauty. *Limite : ce chiffrage porte sur le chiffre d'affaires brut, pas sur la marge nette par catégorie — donnée absente de ce jeu de données, à collecter avant d'arbitrer un budget.*
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **5.4. Ne pas construire d'indicateur composite unique pour piloter l'activité.**
+
+    L'ACP (partie 3) montre qu'aucun facteur caché ne résume les commandes (49,4% de variance cumulée sur les 2 premiers axes seulement) : remise, délai, catégorie et région doivent rester suivis comme des leviers indépendants dans le tableau de bord, plutôt que fondus dans un score global qui masquerait des effets contraires.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    **5.5. Investiguer l'écart entre fidélisation et satisfaction.**
+
+    Le taux de ré-achat atteint 80,22% (989 clients uniques pour 5 000 commandes) alors que la note moyenne n'est que de 2,97/5 : le ré-achat semble porté par d'autres facteurs que l'enthousiasme client (prix, habitude, absence d'alternative locale). *Limite : ce jeu de données ne permet pas d'identifier lequel de ces facteurs domine — une enquête de satisfaction qualitative serait nécessaire pour trancher.*
     """)
     return
 
